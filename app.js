@@ -672,21 +672,34 @@ function renderResult(res){
     ['Inbuilt CNG OD', odComp.inbuiltCngOdPremium]
   ];
 
-  odList.forEach(item => {
+ // zero वाले प्रीमियम हटा दो
+  const filteredOdList = odList.filter(([_, amount]) => amount > 0);
+
+  // सिर्फवे वाली एंट्रीज़ रेंडर करो
+  filteredOdList.forEach(([label, amount]) => {
     const el = document.createElement('div');
     el.className = 'line-item';
-    el.innerHTML = `<div>${item[0]}</div><div>${ruppee(item[1])}</div>`;
+    el.innerHTML = `<div>${label}</div><div>${ruppee(amount)}</div>`;
     odDiv.appendChild(el);
   });
 
   // Anti theft discount (line-item, always show if >0)
-  if (odComp.antiTheftDiscount > 0) {
-    odDiv.appendChild(buildLine('Anti Theft Discount', -odComp.antiTheftDiscount));
-  }
-  // Nil dep, nil dep renewal, U/W, NCB discount (lines)
-  odDiv.appendChild(buildLine('Nil Dep Discount', -odComp.nilDepDiscountAmount));
-  odDiv.appendChild(buildLine('Nil Dep Renewal Discount', -odComp.nilDepRenewalDiscount));
-  odDiv.appendChild(buildLine('U/W Discount', -odComp.uwDiscountAmount));
+  // 1) सारी discount lines एक list में
+const discountList = [
+  ['Anti Theft Discount',        -odComp.antiTheftDiscount],
+  ['Nil Dep Discount',           -odComp.nilDepDiscountAmount],
+  ['Nil Dep Renewal Discount',   -odComp.nilDepRenewalDiscount],
+  ['U/W Discount',               -odComp.uwDiscountAmount]
+];
+
+// 2) zero-value हटाओ
+const filteredDiscounts = discountList.filter(([_, amt]) => amt !== 0);
+
+// 3) बची हुई रेंडर करो
+filteredDiscounts.forEach(([label, amt]) => {
+  odDiv.appendChild(buildLine(label, amt));
+});
+
 
   // NCB Discount line item, with tooltip for basis
   const ncbDiscLine = document.createElement('div');
@@ -705,12 +718,24 @@ function renderResult(res){
   liDiv.className = 'breakline';
   liDiv.innerHTML = `<h4>Liability / TP Premium</h4>`;
 
-  liDiv.appendChild(buildLine('Basic TP', res.breakdown.liability.tpBase));
-  for (const [k,v] of Object.entries(res.breakdown.liability.liabilityAddons)){
-    const n = k.replace(/([A-Z])/g,' $1').replace(/^./, s=>s.toUpperCase());
-    liDiv.appendChild(buildLine(n, v));
-  }
-  liDiv.appendChild(buildLine('Total Liability', res.breakdown.liability.totalLiability));
+liDiv.appendChild(buildLine('Basic TP', res.breakdown.liability.tpBase));
+
+// 1) सभी TP add-ons list बनाओ
+const tpAddons = Object.entries(res.breakdown.liability.liabilityAddons);
+
+// 2) zero-value हटाओ
+const filteredTpAddons = tpAddons.filter(([_, amount]) => amount > 0);
+
+// 3) बची हुई रेंडर करो
+filteredTpAddons.forEach(([key, amount]) => {
+  const name = key
+    .replace(/([A-Z])/g,' $1')
+    .replace(/^./, s=>s.toUpperCase());
+  liDiv.appendChild(buildLine(name, amount));
+});
+
+liDiv.appendChild(buildLine('Total Liability', res.breakdown.liability.totalLiability));
+
 
   // GST (single line only, as required)
   const taxDiv = document.createElement('div');
